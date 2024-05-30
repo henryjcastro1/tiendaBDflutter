@@ -1,0 +1,187 @@
+CREATE DATABASE tu_base_de_datos;
+CREATE USER usuario WITH ENCRYPTED PASSWORD '1111';
+GRANT ALL PRIVILEGES ON DATABASE tu_base_de_datos TO usuario;
+\q
+exit
+
+Crear la Tabla de Usuarios en PostgreSQL
+Conectar a la base de datos recién creada:
+
+sudo -i -u postgres
+psql -d tu_base_de_datos
+
+
+Crear la tabla users:
+CREATE TABLE users(
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) NOT NULL,
+    email VARCHAR(50) NOT NULL,
+    password VARCHAR(50) NOT NULL
+);
+\q
+exit
+
+Crear la API en PHP para Registrar Usuarios
+Crea un archivo PHP en el directorio raíz de tu servidor web (por ejemplo, /var/www/html):
+
+<?php
+$host = "localhost";
+$dbname = "tu_base_de_datos";
+$user = "tu_usuario";
+$password = "tu_contraseña";
+
+// Conectar a la base de datos
+$conn = pg_connect("host=$host dbname=$dbname user=$user password=$password");
+
+if (!$conn) {
+    echo json_encode(['status' => 'error', 'message' => 'Error al conectar a la base de datos']);
+    exit;
+}
+
+// Obtener los datos del cuerpo de la solicitud
+$data = json_decode(file_get_contents('php://input'), true);
+
+$username = $data['username'];
+$email = $data['email'];
+$password = $data['password'];
+
+// Insertar los datos en la tabla users
+$query = "INSERT INTO users (username, email, password) VALUES ('$username', '$email', '$password')";
+$result = pg_query($conn, $query);
+
+if ($result) {
+    echo json_encode(['status' => 'success', 'message' => 'Usuario registrado con éxito']);
+} else {
+    echo json_encode(['status' => 'error', 'message' => 'Error al registrar el usuario']);
+}
+
+pg_close($conn);
+?>
+
+
+Modificar la Aplicación Flutter para Enviar Datos al Servidor
+Añade el paquete http a tu archivo pubspec.yaml:
+
+yaml
+Copiar código
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^0.13.3
+Actualiza register_screen.dart para enviar los datos al servidor:
+
+dart
+Copiar código
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+class RegisterScreen extends StatefulWidget {
+  @override
+  _RegisterScreenState createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends State<RegisterScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  Future<void> _register() async {
+    if (_formKey.currentState!.validate()) {
+      final username = _usernameController.text;
+      final email = _emailController.text;
+      final password = _passwordController.text;
+
+      final response = await http.post(
+        Uri.parse('http://tu_dominio.com/register_user.php'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'username': username,
+          'email': email,
+          'password': password,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final responseBody = json.decode(response.body);
+        if (responseBody['status'] == 'success') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Usuario registrado con éxito')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${responseBody['message']}')),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al conectar con el servidor')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Registrar'),
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              TextFormField(
+                controller: _usernameController,
+                decoration: InputDecoration(labelText: 'Nombre de usuario'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Por favor ingresa un nombre de usuario';
+                  }
+                  return null;
+                },
+              ),
+              TextFormField(
+                controller: _emailController,
+                decoration: InputDecoration(labelText: 'Correo electrónico'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Por favor ingresa un correo electrónico';
+                  }
+                  return null;
+                },
+              ),
+              TextFormField(
+                controller: _passwordController,
+                decoration: InputDecoration(labelText: 'Contraseña'),
+                obscureText: true,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Por favor ingresa una contraseña';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 16.0),
+              ElevatedButton(
+                onPressed: _register,
+                child: Text('Registrar'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+Resumen
+Configura la base de datos PostgreSQL y crea la tabla users.
+Crea una API en PHP para recibir datos de tu aplicación Flutter y almacenarlos en PostgreSQL.
+Modifica tu aplicación Flutter para enviar datos al servidor utilizando HTTP POST.
+Siguiendo estos pasos, podrás enviar los datos de registro de usuarios desde tu aplicación Flutter a tu servidor CentOS 7 y almacenarlos en PostgreSQL.
